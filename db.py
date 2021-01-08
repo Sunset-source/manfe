@@ -17,7 +17,12 @@ def gen_batch(hps):
         for j in range(TIME_SLOTS_PER_PACKET):
             t = i * TIME_SLOTS_PER_PACKET + j
 
-            w = levy_stable.rvs(alpha=hps.alpha, beta=hps.beta, loc=hps.mu, scale=hps.sigma, size=[2 * NUM_ANT, 1])
+            if NOISE_TYPE == "MIXGAUSS":
+                w = exampl_mixture_gauss(size=[2 * NUM_ANT, 1])
+            elif NOISE_TYPE == "NAKA":
+                w = nakagami_m(m=hps.m, size=[2 * NUM_ANT, 1])
+            else:
+                w = levy_stable.rvs(alpha=hps.alpha, beta=hps.beta, loc=hps.mu, scale=hps.sigma, size=[2 * NUM_ANT, 1])
 
             s = s_batch[t, :, :]
             s = s.reshape([2 * NUM_ANT, 1])
@@ -41,13 +46,26 @@ def levy_var_batch(hps):
     )
 
 
+def nakagami_var_batch(hps):
+    return nakagami_m(m=hps.m, size=[TIMES_SLOTS_PER_BATCH, 2 * NUM_ANT, 1])
+
+
+def gen_noise_from_hps(hps):
+    if NOISE_TYPE == "MIXGAUSS":
+        return exampl_mixture_gauss(size=[TIMES_SLOTS_PER_BATCH, 2 * NUM_ANT, 1])
+    elif NOISE_TYPE == "NAKA":
+        return nakagami_var_batch(hps)
+    else:
+        return levy_var_batch(hps)
+
+
 class TrainDb:
     def __init__(self, hps):
         self.hps = hps
 
     def fetch(self):
         for i in range(self.hps.train_total_batch):
-            yield levy_var_batch(self.hps)
+            yield gen_noise_from_hps(self.hps)
 
 
 class ValidDb:
@@ -56,7 +74,7 @@ class ValidDb:
 
     def fetch(self):
         for i in range(self.hps.valid_total_batch):
-            yield levy_var_batch(self.hps)
+            yield gen_noise_from_hps(self.hps)
 
 
 class TestDb:

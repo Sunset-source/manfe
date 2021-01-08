@@ -22,12 +22,11 @@ class MANFE(AbstractModel):
     Maximum a normalizing flow estimate
     """
 
-    def __init__(self, alpha, hidden_size, depth):
+    def __init__(self, name, hidden_size, depth):
         self.hidden_size = hidden_size
         self.depth = depth
         self.__masks = {}
 
-        name = "MANFE_qpsk_ant{}_hidden{}_depth{}_alpha{}".format(NUM_ANT, hidden_size, depth, alpha)
         super(MANFE, self).__init__(name)
 
     def _build_graph(self):
@@ -72,7 +71,7 @@ class MANFE(AbstractModel):
                 self.w: w.reshape([-1, 2 * NUM_ANT, 1]),
             }
         )
-        print("Testing, batch {}, nll={:e}".format(batch_idx, loss), end="\r")
+        print("Testing, batch {}, nll={:e}".format(batch_idx + 1, loss), end="\r")
         return loss
 
     def logprob(self, w):
@@ -89,13 +88,13 @@ class MANFE(AbstractModel):
         batch_size, m, n = h.shape
         s_est = np.zeros([batch_size, n, 1])
 
-        likelihoods = np.zeros([batch_size, QPSK_CANDIDATE_SIZE])
+        logprobs = np.zeros([batch_size, QPSK_CANDIDATE_SIZE])
         w_cands = y - h @ np.reshape(QPSK_CANDIDATES, [1, 2 * NUM_ANT, QPSK_CANDIDATE_SIZE])
         for t in range(QPSK_CANDIDATE_SIZE):
             logp = self.logprob(w_cands[:, :, t:t + 1])
-            likelihoods[:, t:t + 1] = logp.reshape([batch_size, 1])
+            logprobs[:, t:t + 1] = logp.reshape([batch_size, 1])
 
-        indexes = np.argmax(likelihoods, axis=1)
+        indexes = np.argmax(logprobs, axis=1)
         for i, t in enumerate(indexes):
             s_est[i:i + 1, :, :] = QPSK_CANDIDATES[:, t].reshape([1, 2 * NUM_ANT, 1])
 
@@ -117,7 +116,7 @@ class MANFE(AbstractModel):
                         if j == 0:
                             mask[:, idx, :] *= -1
                         elif j == 1:
-                            mask[:, idx+NUM_ANT, :] *= -1
+                            mask[:, idx + NUM_ANT, :] *= -1
                         else:
                             mask[:, idx, :] *= -1
                             mask[:, idx + NUM_ANT, :] *= -1
@@ -144,7 +143,7 @@ class MANFE(AbstractModel):
                 if not use_mld:
                     l_possible = self.logprob(y - h @ s_possible)
                 else:
-                    dst = (y - h @ s_possible)**2
+                    dst = (y - h @ s_possible) ** 2
                     l_possible = np.sum(dst, axis=1, keepdims=True)
                 s_cand.append(s_possible)
                 l_cand.append(l_possible)
@@ -161,3 +160,21 @@ class MANFE(AbstractModel):
             s_est[i:i + 1, :, :] = s_cand[i:i + 1, :, t:t + 1].reshape([1, 2 * NUM_ANT, 1])
 
         return get_bits(s_est)
+
+
+class MANFE_SAS(MANFE):
+    def __init__(self, alpha, hidden_size, depth):
+        name = "MANFE_SAS_qpsk_ant{}_hidden{}_depth{}_alpha{}".format(NUM_ANT, hidden_size, depth, alpha)
+        super(MANFE_SAS, self).__init__(name, hidden_size, depth)
+
+
+class MANFE_NAKA(MANFE):
+    def __init__(self, m, omega, hidden_size, depth):
+        name = "MANFE_NAKA_qpsk_ant{}_hidden{}_depth{}_m{}_omega{}".format(NUM_ANT, hidden_size, depth, m, omega)
+        super(MANFE_NAKA, self).__init__(name, hidden_size, depth)
+
+
+class MANFE_MIXGUASS(MANFE):
+    def __init__(self, hidden_size, depth):
+        name = "MANFE_MIXGUASS_qpsk_ant{}_hidden{}_depth{}".format(NUM_ANT, hidden_size, depth)
+        super(MANFE_MIXGUASS, self).__init__(name, hidden_size, depth)

@@ -1,6 +1,8 @@
 import os
 import pathlib
 
+from scipy.stats import norm, nakagami
+from scipy.special import gamma
 from global_settings import *
 
 
@@ -81,28 +83,103 @@ def lmmse_batch(y, h):
     return np.where(z < 0, -1, 1) / np.sqrt(2)
 
 
-def maximum_likelihood_detect_bits(y, h):
-    assert len(h.shape) == 3
-    batch_size, m, n = h.shape
-    s_mld = np.zeros([batch_size, n, 1])
-
-    if True:
-        dst = np.sum(np.square(y - h @ QPSK_CANDIDATES), axis=1)
-    else:
-        dst = None
-        for j in range(QPSK_CANDIDATE_SIZE):
-            s_cand = QPSK_CANDIDATES[:, j:j + 1].reshape([1, 2 * NUM_ANT, 1])
-            dj = np.sum(np.square(y - h @ s_cand), axis=(1, 2)).reshape([-1, 1])
-
-            if dst is None:
-                dst = dj
-            else:
-                dst = np.concatenate((dst, dj), axis=1)
-
-    min_indexes = dst.argmin(1)
-    for i, t in enumerate(min_indexes):
-        s_mld[i:i + 1, :, :] = QPSK_CANDIDATES[:, t].reshape([1, 2 * NUM_ANT, 1])
-
-    return get_bits(s_mld)
+def nakagami_m(m, size):
+    return nakagami.rvs(m, size=size)
 
 
+def mixture_gaussian(probs, means, stds, size):
+    y = [np.random.normal(means[i], stds[i], size) for i in range(len(probs))]
+    p = np.random.uniform(0, 1, size)
+    x = np.zeros(size)
+    for i in reversed(range(len(probs))):
+        x[p <= probs[i]] = y[i][p <= probs[i]]
+    return x
+
+
+def exampl_mixture_gauss(size):
+    x = mixture_gaussian([0.5, 1], [-1, 1], [2, 1], size)
+    x = x / np.sqrt(3.5)
+    return x
+
+
+def exampl_mixture_gauss2(size):
+    x = np.zeros(size).flatten()
+    for i in range(x.size):
+        p = np.random.rand()
+        if p < 0.5:
+            x[i] = np.random.normal(-1, 2)
+        else:
+            x[i] = np.random.normal(1, 1)
+    x = x / np.sqrt(3.5)
+    return x.reshape(size)
+
+
+def mle_nakagami(y, H, m):
+    assert len(H.shape) == 3
+    s_ml = np.zeros([H.shape[0], H.shape[2], 1])
+
+    for i in range(y.shape[0]):
+        y_ = y[i, :, :]
+        H_ = H[i, :, :]
+        max_logp = -np.inf
+        best_cand = None
+        for t in range(2 ** (2 * NUM_ANT)):
+            cand = QPSK_CANDIDATES[:, t:t + 1].reshape([2 * NUM_ANT, 1])
+            w_ = y_ - H_ @ cand
+            if (w_ >= 0).all():
+                logp = np.sum(nakagami.logpdf(w_, m))
+                if best_cand is None or logp > max_logp:
+                    best_cand = cand
+                    max_logp = logp
+
+        s_ml[i:i + 1, :, :] = best_cand.reshape([1, 2 * NUM_ANT, 1])
+
+    return get_bits(s_ml)
+
+
+def mle_nakagami2(y, H, m):
+    assert len(H.shape) == 3
+    s_ml = np.zeros([H.shape[0], H.shape[2], 1])
+
+    w = y - H @ QPSK_CANDIDATES
+    logp = np.sum(nakagami.logpdf(w, m), axis=1)
+    logp = np.where(np.isnan(logp), -np.inf, logp)
+
+    indexes = logp.argmax(1)
+    for i, t in enumerate(indexes):
+        s_ml[i:i + 1, :, :] = QPSK_CANDIDATES[:, t].reshape([1, 2 * NUM_ANT, 1])
+
+    return get_bits(s_ml)
+
+
+def mle_mixgauss(y, H):
+    assert len(H.shape) == 3
+    s_ml = np.zeros([H.shape[0], H.shape[2], 1])
+
+    w = y - H @ QPSK_CANDIDATES
+    w = w * np.sqrt(3.5)
+    logp = np.sum(np.log(0.5 * norm.pdf(w, -1, 2) + 0.5 * norm.pdf(w, 1, 1)), axis=1)
+
+    indexes = logp.argmax(1)
+    for i, t in enumerate(indexes):
+        s_ml[i:i + 1, :, :] = QPSK_CANDIDATES[:, t].reshape([1, 2 * NUM_ANT, 1])
+
+    return get_bits(s_ml)
+
+
+def mle_gauss(y, H):
+    assert len(H.shape) == 3
+    s_ml = np.zeros([H.shape[0], H.shape[2], 1])
+
+    dst = np.sum(np.square(y - H @ QPSK_CANDIDATES), axis=1)
+
+    indexes = dst.argmin(1)
+    for i, t in enumerate(indexes):
+        s_ml[i:i + 1, :, :] = QPSK_CANDIDATES[:, t].reshape([1, 2 * NUM_ANT, 1])
+
+    return get_bits(s_ml)
+
+
+def vector_average_norm(x):
+    assert len(x.shape) == 3
+    return np.mean(np.sum(x ** 2, axis=1))
