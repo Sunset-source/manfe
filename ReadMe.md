@@ -9,3 +9,10 @@ Update: The associated paper is under a major revision right now, the complete c
 
 ## Credit
 Some code in `nn.py` are copied from [OpenAI::Glow](https://github.com/openai/glow).
+
+
+## License
+Anti 996 License Version 1.0
+
+[![LICENSE](https://img.shields.io/badge/license-Anti%20996-blue.svg)](https://github.com/996icu/996.ICU/blob/master/LICENSE)
+<a href="https://996.icu"><img src="https://img.shields.io/badge/link-996.icu-red.svg" alt="996.icu"></a>
