@@ -1,5 +1,5 @@
 # MANFE
-This is the repo for manfe, a MIMO signal detection framework, which does not require any statistical knowledge on the noise.
+This is the repo for manfe, a MIMO signal detection framework, which does not require any statistical knowledge on the noise. The associated paper is under revision reight now and you can check the [Preprint](https://arxiv.org/abs/2101.08435) online if you are interested.
 
 ## Under construction
 
