@@ -1,9 +1,5 @@
 # MANFE
-This is the repo for manfe, a MIMO signal detection framework, which does not require any statistical knowledge on the noise. The associated paper is now accepted by IEEE Transactions on Communications and you can check the [Preprint](https://arxiv.org/abs/2101.08435) online if you are interested.
-
-## Under construction
-
-Please be patient and wait. We are now working on cleaning the code for publication.
+This is the repo for MANFE (stands for Maximum a Normalizing Flow Estimate), a MIMO signal detection framework which does not require any statistical knowledge on the noise. The associated paper is now published by IEEE Transactions on Communications and you can check the [Preprint](https://arxiv.org/abs/2101.08435) online for free if you are interested.
 
 ## Credit
 Some code in `nn.py` are copied from [OpenAI::Glow](https://github.com/openai/glow).
